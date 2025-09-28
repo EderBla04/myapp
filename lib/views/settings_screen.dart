@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:hive_flutter/hive_flutter.dart';
-import '../models/settings_model.dart';
+import '../controllers/settings_controller.dart';
+import '../utils/error_handler.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -10,16 +10,16 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  final settingsBox = Hive.box<AppSettings>('settings');
+  final _settingsController = SettingsController();
   late TextEditingController _pigletPriceController;
   late TextEditingController _kgPriceController;
 
   @override
   void initState() {
     super.initState();
-    // Initialize controllers with values from Hive, or defaults.
-    final settings = settingsBox.get(0, defaultValue: AppSettings(globalPigletPrice: 50.0, globalKgPrice: 2.5));
-    _pigletPriceController = TextEditingController(text: settings!.globalPigletPrice.toString());
+    // Initialize controllers with values from the controller
+    final settings = _settingsController.getSettings();
+    _pigletPriceController = TextEditingController(text: settings.globalPigletPrice.toString());
     _kgPriceController = TextEditingController(text: settings.globalKgPrice.toString());
   }
 
@@ -91,26 +91,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  void _saveSettings() {
+  Future<void> _saveSettings() async {
     final double pigletPrice = double.tryParse(_pigletPriceController.text) ?? 50.0;
     final double kgPrice = double.tryParse(_kgPriceController.text) ?? 2.5;
 
-    final newSettings = AppSettings(
-      globalPigletPrice: pigletPrice,
-      globalKgPrice: kgPrice,
-    );
-
-    // Hive uses a single entry for settings, with key 0.
-    settingsBox.put(0, newSettings);
-
-    // Show confirmation and pop
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Ajustes guardados correctamente.'),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-    Navigator.of(context).pop();
+    try {
+      await _settingsController.saveSettingsValues(
+        pigletPrice: pigletPrice,
+        kgPrice: kgPrice,
+      );
+      
+      if (mounted) {
+        // Show confirmation and pop
+        ErrorHandler.showSuccessSnackBar(
+          context, 'Ajustes guardados correctamente.'
+        );
+        Navigator.of(context).pop();
+      }
+    } catch (e) {
+      if (mounted) {
+        ErrorHandler.showErrorSnackBar(
+          context, 'Error al guardar configuraciones: ${e.toString()}'
+        );
+      }
+    }
   }
 
   @override

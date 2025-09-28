@@ -6,6 +6,7 @@ import '../models/sow_model.dart';
 import '../controllers/crianza_controller.dart';
 import '../widgets/sow_animation_widget.dart';
 import '../theme/theme.dart';
+import '../utils/error_handler.dart';
 
 class BreedingScreen extends StatefulWidget {
   const BreedingScreen({super.key});
@@ -51,10 +52,19 @@ class _BreedingScreenState extends State<BreedingScreen> {
               child: const Text('Cancelar'),
             ),
             FilledButton(
-              onPressed: () {
+              onPressed: () async {
                 if (nameController.text.trim().isNotEmpty) {
-                  _controller.addSow(name: nameController.text.trim());
-                  Navigator.pop(context);
+                  await _controller.addSow(name: nameController.text.trim());
+                  if (mounted) {
+                    Navigator.pop(context);
+                    ErrorHandler.showSuccessSnackBar(
+                      context, 'Cerda "${nameController.text.trim()}" añadida'
+                    );
+                  }
+                } else {
+                  ErrorHandler.showWarningSnackBar(
+                    context, 'Por favor ingrese un nombre válido'
+                  );
                 }
               },
               child: const Text('Añadir'),
@@ -107,12 +117,20 @@ class _BreedingScreenState extends State<BreedingScreen> {
               child: const Text('Cancelar'),
             ),
             FilledButton(
-              onPressed: () {
+              onPressed: () async {
                 final price = double.tryParse(priceController.text);
                 if (price != null && price > 0) {
-                  _controller.updatePrecioGlobalCerdito(price);
-                  Navigator.pop(context);
-                  setState(() {});
+                  await _controller.updatePrecioGlobalCerdito(price);
+                  if (mounted) {
+                    Navigator.pop(context);
+                    ErrorHandler.showSuccessSnackBar(
+                      context, 'Precio actualizado correctamente'
+                    );
+                  }
+                } else {
+                  ErrorHandler.showErrorSnackBar(
+                    context, 'Por favor ingrese un precio válido'
+                  );
                 }
               },
               child: const Text('Guardar'),
@@ -134,14 +152,22 @@ class _BreedingScreenState extends State<BreedingScreen> {
             child: Card(
               child: Padding(
                 padding: const EdgeInsets.all(16),
-                child: Row(
+                child: Column(
                   children: [
-                    Expanded(child: _buildStatsCard()),
-                    const SizedBox(width: 16),
-                    ElevatedButton.icon(
-                      onPressed: _showPriceSettingsDialog,
-                      icon: const Icon(Icons.settings, size: 20),
-                      label: const Text('Precios'),
+                    ValueListenableBuilder(
+                      valueListenable: _controller.getSowListenable(),
+                      builder: (context, Box<Sow> box, _) {
+                        return _buildStatsCard();
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: _showPriceSettingsDialog,
+                        icon: const Icon(Icons.settings, size: 18),
+                        label: const Text('Configurar Precios'),
+                      ),
                     ),
                   ],
                 ),
@@ -152,17 +178,18 @@ class _BreedingScreenState extends State<BreedingScreen> {
           // Lista de cerdas
           Expanded(
             child: ValueListenableBuilder(
-              valueListenable: Hive.box<Sow>('sows').listenable(),
+              valueListenable: _controller.getSowListenable(),
               builder: (context, Box<Sow> box, _) {
-                if (box.values.isEmpty) {
+                final sows = _controller.getAllSows();
+                if (sows.isEmpty) {
                   return _buildEmptyState();
                 }
                 
                 return ListView.builder(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: box.values.length,
+                  itemCount: sows.length,
                   itemBuilder: (context, index) {
-                    final sow = box.getAt(index)!;
+                    final sow = sows[index];
                     return _buildSowCard(sow);
                   },
                 );
@@ -172,7 +199,7 @@ class _BreedingScreenState extends State<BreedingScreen> {
         ],
       ),
       floatingActionButton: ValueListenableBuilder(
-        valueListenable: Hive.box<Sow>('sows').listenable(),
+        valueListenable: _controller.getSowListenable(),
         builder: (context, Box<Sow> box, _) {
           // Solo mostrar el FAB cuando hay cerdas
           if (box.values.isEmpty) {
@@ -232,19 +259,19 @@ class _BreedingScreenState extends State<BreedingScreen> {
   Widget _buildStatChip(String label, Color color) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.3)),
+        color: color.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withOpacity(0.4), width: 1.2),
       ),
       child: Text(
         label,
         textAlign: TextAlign.center,
         style: TextStyle(
-          color: Color.lerp(color, Colors.black, 0.3)!,
-          fontSize: 10,
-          fontWeight: FontWeight.w600,
+          color: Color.lerp(color, Colors.black, 0.2)!,
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
         ),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
@@ -329,7 +356,7 @@ class _BreedingScreenState extends State<BreedingScreen> {
                     ),
                     const SizedBox(height: 4),
                     _buildStatusInfo(sow),
-                    if (sow.estadoVisual == 'prenada') ...[
+                    if (sow.estadoVisual == 'preñada') ...[
                       const SizedBox(height: 8),
                       _buildProgressBar(sow),
                     ],
@@ -342,10 +369,39 @@ class _BreedingScreenState extends State<BreedingScreen> {
               ),
               
               // Botón de acciones
-              IconButton(
-                onPressed: () => context.go('/sow/${sow.id}'),
-                icon: const Icon(Icons.arrow_forward_ios),
-                color: Theme.of(context).primaryColor,
+              PopupMenuButton<String>(
+                onSelected: (value) {
+                  switch (value) {
+                    case 'details':
+                      context.go('/sow/${sow.id}');
+                      break;
+                    case 'delete':
+                      _showDeleteSowDialog(sow);
+                      break;
+                  }
+                },
+                itemBuilder: (context) => [
+                  const PopupMenuItem(
+                    value: 'details',
+                    child: ListTile(
+                      leading: Icon(Icons.visibility),
+                      title: Text('Ver Detalles'),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'delete',
+                    child: ListTile(
+                      leading: Icon(Icons.delete, color: Colors.red),
+                      title: Text('Eliminar', style: TextStyle(color: Colors.red)),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                ],
+                child: Icon(
+                  Icons.more_vert,
+                  color: Theme.of(context).primaryColor,
+                ),
               ),
             ],
           ),
@@ -360,7 +416,7 @@ class _BreedingScreenState extends State<BreedingScreen> {
     IconData statusIcon;
 
     switch (sow.estadoVisual) {
-      case 'prenada':
+      case 'preñada':
         statusText = 'Preñada - ${sow.diasRestantes} días restantes';
         statusColor = Colors.orange;
         statusIcon = Icons.favorite;
@@ -380,11 +436,15 @@ class _BreedingScreenState extends State<BreedingScreen> {
       children: [
         Icon(statusIcon, size: 16, color: statusColor),
         const SizedBox(width: 4),
-        Text(
-          statusText,
-          style: TextStyle(
-            color: Color.lerp(statusColor, Colors.black, 0.3)!,
-            fontWeight: FontWeight.w500,
+        Expanded(
+          child: Text(
+            statusText,
+            style: TextStyle(
+              color: Color.lerp(statusColor, Colors.black, 0.3)!,
+              fontWeight: FontWeight.w500,
+            ),
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
           ),
         ),
       ],
@@ -456,6 +516,61 @@ class _BreedingScreenState extends State<BreedingScreen> {
           ],
         ),
       ],
+    );
+  }
+
+  void _showDeleteSowDialog(Sow sow) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: Row(
+            children: [
+              Icon(Icons.warning, color: Colors.red, size: 28),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'Eliminar Cerda',
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('¿Estás seguro de que deseas eliminar la cerda "${sow.name}"?'),
+              const SizedBox(height: 16),
+              const Text(
+                'Esta acción no se puede deshacer.',
+                style: TextStyle(
+                  color: Colors.red,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                await _controller.deleteSow(sow.id);
+                if (mounted) {
+                  Navigator.pop(dialogContext);
+                  ErrorHandler.showSuccessSnackBar(
+                    context, 'Cerda "${sow.name}" eliminada'
+                  );
+                }
+              },
+              style: FilledButton.styleFrom(backgroundColor: Colors.red),
+              child: const Text('Eliminar'),
+            ),
+          ],
+        );
+      },
     );
   }
 }

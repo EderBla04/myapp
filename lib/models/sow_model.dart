@@ -57,9 +57,9 @@ class Sow extends HiveObject {
   }
 
   // Método para marcar como preñada
-  void marcarComoPrenada() {
-    fechaPrenada = DateTime.now();
-    fechaPartoEstimado = DateTime.now().add(const Duration(days: 114)); // Gestación cerda ~114 días
+  void marcarComoPrenada([DateTime? fechaPersonalizada]) {
+    fechaPrenada = fechaPersonalizada ?? DateTime.now();
+    fechaPartoEstimado = fechaPrenada!.add(const Duration(days: 114)); // Gestación cerda ~114 días
     estadoVisual = "preñada";
     hasDado = false;
   }

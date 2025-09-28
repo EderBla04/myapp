@@ -113,7 +113,7 @@ class _SowAnimationWidgetState extends State<SowAnimationWidget>
 
   Widget _buildSowBody() {
     final pregnancyProgress = widget.sow.porcentajeEmbarazo;
-    final isPregnant = widget.sow.estadoVisual == 'prenada';
+    final isPregnant = widget.sow.estadoVisual == 'preñada';
     
     // Tamaño base más grande
     double baseSize = 40.0;
@@ -278,7 +278,7 @@ class _SowAnimationWidgetState extends State<SowAnimationWidget>
     IconData icon;
     
     switch (widget.sow.estadoVisual) {
-      case 'prenada':
+      case 'preñada':
         indicatorColor = Colors.orange;
         icon = Icons.favorite;
         break;

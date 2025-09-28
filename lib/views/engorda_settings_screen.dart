@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../controllers/fattening_pig_controller.dart';
 import '../theme/theme.dart';
+import '../utils/error_handler.dart';
 
 class EngordaSettingsScreen extends StatefulWidget {
   const EngordaSettingsScreen({super.key});
@@ -11,7 +12,7 @@ class EngordaSettingsScreen extends StatefulWidget {
 }
 
 class _EngordaSettingsScreenState extends State<EngordaSettingsScreen> {
-  final EngordaController _controller = EngordaController();
+  final FatteningPigController _controller = FatteningPigController();
   final TextEditingController _priceController = TextEditingController();
   final currencyFormatter = NumberFormat.currency(symbol: '\$', decimalDigits: 0);
 
@@ -27,22 +28,18 @@ class _EngordaSettingsScreenState extends State<EngordaSettingsScreen> {
     super.dispose();
   }
 
-  void _savePrice() {
+  Future<void> _savePrice() async {
     final price = double.tryParse(_priceController.text);
     if (price != null && price > 0) {
-      _controller.updatePrecioGlobalPorKilo(price);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Precio actualizado correctamente'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      await _controller.updatePrecioGlobalPorKilo(price);
+      if (mounted) {
+        ErrorHandler.showSuccessSnackBar(
+          context, 'Precio actualizado correctamente'
+        );
+      }
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Por favor ingresa un precio válido'),
-          backgroundColor: Colors.red,
-        ),
+      ErrorHandler.showErrorSnackBar(
+        context, 'Por favor ingresa un precio válido'
       );
     }
   }

@@ -5,6 +5,7 @@ import '../models/sow_model.dart';
 import '../controllers/crianza_controller.dart';
 import '../widgets/sow_animation_widget.dart';
 import '../theme/theme.dart';
+import '../utils/error_handler.dart';
 
 class SowDetailScreen extends StatefulWidget {
   final String sowId;
@@ -47,19 +48,21 @@ class _SowDetailScreenState extends State<SowDetailScreen> {
           actions: [
             TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancelar')),
             FilledButton(
-              onPressed: () {
+              onPressed: () async {
                 final pigletsCount = int.tryParse(pigletsController.text);
                 final initialWeight = double.tryParse(weightController.text);
 
                 if (pigletsCount != null && initialWeight != null && pigletsCount > 0) {
                   // Registrar parto
-                  _controller.registrarParto(sow.id, pigletsCount);
+                  await _controller.registrarParto(sow.id, pigletsCount);
                   
                   // Handle UI logic here in the view
-                  Navigator.pop(dialogContext);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Parto registrado: $pigletsCount cerditos')),
-                  );
+                  if (mounted) {
+                    Navigator.pop(dialogContext);
+                    ErrorHandler.showSuccessSnackBar(
+                      context, 'Parto registrado: $pigletsCount cerditos'
+                    );
+                  }
                 }
               },
               child: const Text('Registrar'),
@@ -70,12 +73,111 @@ class _SowDetailScreenState extends State<SowDetailScreen> {
     );
   }
 
+  void _showMarkPregnantDialog(Sow sow) {
+    DateTime selectedDate = DateTime.now();
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: Row(
+                children: [
+                  Icon(Icons.favorite, color: PorciColors.sowPink, size: 28),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      'Marcar como Preñada',
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('Cerda: ${sow.name}'),
+                  const SizedBox(height: 16),
+                  const Text('Fecha de preñez:'),
+                  const SizedBox(height: 8),
+                  InkWell(
+                    onTap: () async {
+                      final DateTime? picked = await showDatePicker(
+                        context: context,
+                        initialDate: selectedDate,
+                        firstDate: DateTime.now().subtract(const Duration(days: 30)),
+                        lastDate: DateTime.now(),
+                      );
+                      if (picked != null && picked != selectedDate) {
+                        setState(() {
+                          selectedDate = picked;
+                        });
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.calendar_today, color: PorciColors.sowPink),
+                          const SizedBox(width: 8),
+                          Text(DateFormat('dd/MM/yyyy').format(selectedDate)),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Fecha estimada de parto: ${DateFormat('dd/MM/yyyy').format(selectedDate.add(const Duration(days: 114)))}',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: const Text('Cancelar'),
+                ),
+                FilledButton(
+                  onPressed: () async {
+                    await _controller.marcarCerdaPrenada(sow.id, selectedDate);
+                    if (mounted) {
+                      Navigator.pop(dialogContext);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('${sow.name} marcada como preñada')),
+                      );
+                    }
+                  },
+                  child: const Text('Confirmar'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder(
-      valueListenable: Hive.box<Sow>('sows').listenable(),
+      valueListenable: _controller.getSowListenable(),
       builder: (context, Box<Sow> box, _) {
-        final sow = box.values.firstWhere((s) => s.id.toString() == widget.sowId);
+        final sowId = int.tryParse(widget.sowId);
+        final sow = sowId != null ? _controller.getSow(sowId) : null;
+        
+        if (sow == null) {
+          return Scaffold(
+            appBar: AppBar(title: const Text('Cerda no encontrada')),
+            body: const Center(
+              child: Text('La cerda solicitada no existe.'),
+            ),
+          );
+        }
 
         return Scaffold(
           appBar: AppBar(
@@ -181,7 +283,7 @@ class _SowDetailScreenState extends State<SowDetailScreen> {
     IconData icon;
 
     switch (sow.estadoVisual) {
-      case 'prenada':
+      case 'preñada':
         chipColor = Colors.orange;
         statusText = 'Preñada';
         icon = Icons.favorite;
@@ -226,7 +328,7 @@ class _SowDetailScreenState extends State<SowDetailScreen> {
     
     return Column(
       children: [
-        if (sow.estadoVisual == 'prenada') ...[
+        if (sow.estadoVisual == 'preñada') ...[
           _buildInfoRow(
             'Días Restantes',
             '${sow.diasRestantes} días',
@@ -333,7 +435,7 @@ class _SowDetailScreenState extends State<SowDetailScreen> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: () => _controller.marcarCerdaPrenada(sow.id),
+              onPressed: () => _showMarkPregnantDialog(sow),
               icon: const Icon(Icons.favorite),
               label: const Text('Marcar como Preñada'),
               style: ElevatedButton.styleFrom(
@@ -345,7 +447,7 @@ class _SowDetailScreenState extends State<SowDetailScreen> {
           ),
         
         // Registrar parto
-        if (sow.estadoVisual == 'prenada') ...[
+        if (sow.estadoVisual == 'preñada') ...[
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
@@ -391,6 +493,22 @@ class _SowDetailScreenState extends State<SowDetailScreen> {
             ),
           ),
         ],
+        
+        // Botón de eliminar (siempre disponible)
+        const SizedBox(height: 16),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: () => _showDeleteSowDialog(sow),
+            icon: const Icon(Icons.delete),
+            label: const Text('Eliminar Cerda'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.all(16),
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -444,6 +562,62 @@ class _SowDetailScreenState extends State<SowDetailScreen> {
                 Navigator.pop(context);
               },
               child: const Text('Guardar'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showDeleteSowDialog(Sow sow) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: Row(
+            children: [
+              Icon(Icons.warning, color: Colors.red, size: 28),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'Eliminar Cerda',
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('¿Estás seguro de que deseas eliminar la cerda "${sow.name}"?'),
+              const SizedBox(height: 16),
+              const Text(
+                'Esta acción no se puede deshacer.',
+                style: TextStyle(
+                  color: Colors.red,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                await _controller.deleteSow(sow.id);
+                if (mounted) {
+                  Navigator.pop(dialogContext);
+                  Navigator.pop(context); // Regresar a la lista de cerdas
+                  ErrorHandler.showSuccessSnackBar(
+                    context, 'Cerda "${sow.name}" eliminada'
+                  );
+                }
+              },
+              style: FilledButton.styleFrom(backgroundColor: Colors.red),
+              child: const Text('Eliminar'),
             ),
           ],
         );

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../models/fattening_pig_model.dart';
 import '../controllers/fattening_pig_controller.dart';
+import '../utils/error_handler.dart';
 
 class FatteningPigDetailScreen extends StatefulWidget {
   final String pigId;
@@ -14,7 +14,7 @@ class FatteningPigDetailScreen extends StatefulWidget {
 }
 
 class _FatteningPigDetailScreenState extends State<FatteningPigDetailScreen> {
-  final EngordaController _controller = EngordaController();
+  final FatteningPigController _controller = FatteningPigController();
 
   void _showRecordWeightDialog(FatteningPig pig) {
     final weightController = TextEditingController();
@@ -31,11 +31,18 @@ class _FatteningPigDetailScreenState extends State<FatteningPigDetailScreen> {
           actions: [
             TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancelar')),
             FilledButton(
-              onPressed: () {
+              onPressed: () async {
                 final weight = double.tryParse(weightController.text);
                 if (weight != null) {
-                  _controller.updateWeight(pig.id, weight);
-                  Navigator.pop(dialogContext);
+                  await _controller.updateWeight(pig.id, weight);
+                  if (mounted) {
+                    Navigator.pop(dialogContext);
+                    ErrorHandler.showSuccessSnackBar(
+                      context, 'Peso actualizado a ${weight.toStringAsFixed(1)} kg'
+                    );
+                  }
+                } else {
+                  ErrorHandler.showErrorSnackBar(context, 'Por favor ingrese un valor válido');
                 }
               },
               child: const Text('Guardar'),
@@ -49,9 +56,18 @@ class _FatteningPigDetailScreenState extends State<FatteningPigDetailScreen> {
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder(
-      valueListenable: Hive.box<FatteningPig>('fattening_pigs').listenable(),
+      valueListenable: _controller.getPigListenable(),
       builder: (context, Box<FatteningPig> box, _) {
-        final pig = box.values.firstWhere((p) => p.id.toString() == widget.pigId);
+        final pig = _controller.getPig(widget.pigId);
+        
+        if (pig == null) {
+          return Scaffold(
+            appBar: AppBar(title: const Text('Cerdo no encontrado')),
+            body: const Center(
+              child: Text('El cerdo solicitado no existe.'),
+            ),
+          );
+        }
 
         return Scaffold(
           appBar: AppBar(title: Text(pig.name)),
@@ -89,13 +105,10 @@ class _FatteningPigDetailScreenState extends State<FatteningPigDetailScreen> {
                       label: const Text('Registrar Pesaje'),
                     ),
                     ElevatedButton.icon(
-                      onPressed: () {
-                        _controller.deletePig(pig.id);
-                        context.go('/');
-                      },
-                      icon: const Icon(Icons.sell_outlined),
-                      label: const Text('Registrar Venta'),
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+                      onPressed: () => _showDeletePigDialog(pig),
+                      icon: const Icon(Icons.delete),
+                      label: const Text('Eliminar Cerdo'),
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
                     ),
                   ],
                 ),
@@ -121,6 +134,62 @@ class _FatteningPigDetailScreenState extends State<FatteningPigDetailScreen> {
               ],
             ),
           ),
+        );
+      },
+    );
+  }
+
+  void _showDeletePigDialog(FatteningPig pig) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: Row(
+            children: [
+              Icon(Icons.warning, color: Colors.red, size: 28),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'Eliminar Cerdo',
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('¿Estás seguro de que deseas eliminar el cerdo "${pig.name}"?'),
+              const SizedBox(height: 16),
+              const Text(
+                'Esta acción no se puede deshacer.',
+                style: TextStyle(
+                  color: Colors.red,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                await _controller.deletePig(pig.id);
+                if (mounted) {
+                  Navigator.pop(dialogContext);
+                  Navigator.pop(context); // Regresar a la lista de cerdos
+                  ErrorHandler.showSuccessSnackBar(
+                    context, 'Cerdo "${pig.name}" eliminado'
+                  );
+                }
+              },
+              style: FilledButton.styleFrom(backgroundColor: Colors.red),
+              child: const Text('Eliminar'),
+            ),
+          ],
         );
       },
     );

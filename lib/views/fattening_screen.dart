@@ -6,6 +6,7 @@ import '../models/fattening_pig_model.dart';
 import '../controllers/fattening_pig_controller.dart';
 import '../widgets/pig_animation_widget.dart';
 import '../theme/theme.dart';
+import '../utils/error_handler.dart';
 
 class FatteningScreen extends StatefulWidget {
   const FatteningScreen({super.key});
@@ -15,7 +16,7 @@ class FatteningScreen extends StatefulWidget {
 }
 
 class _FatteningScreenState extends State<FatteningScreen> {
-  final EngordaController _controller = EngordaController();
+  final FatteningPigController _controller = FatteningPigController();
   final currencyFormatter = NumberFormat.currency(symbol: '\$', decimalDigits: 0);
 
   void _showAddPigDialog() {
@@ -68,12 +69,21 @@ class _FatteningScreenState extends State<FatteningScreen> {
               child: const Text('Cancelar'),
             ),
             FilledButton(
-              onPressed: () {
+              onPressed: () async {
                 final name = nameController.text.trim();
                 final weight = double.tryParse(weightController.text);
                 if (name.isNotEmpty && weight != null && weight > 0) {
-                  _controller.addPig(name: name, weight: weight);
-                  Navigator.pop(context);
+                  await _controller.addPig(name: name, weight: weight);
+                  if (mounted) {
+                    Navigator.pop(context);
+                    ErrorHandler.showSuccessSnackBar(
+                      context, 'Cerdo "$name" añadido'
+                    );
+                  }
+                } else {
+                  ErrorHandler.showWarningSnackBar(
+                    context, 'Por favor ingrese un nombre y un peso válido'
+                  );
                 }
               },
               child: const Text('Añadir'),
@@ -126,12 +136,20 @@ class _FatteningScreenState extends State<FatteningScreen> {
               child: const Text('Cancelar'),
             ),
             FilledButton(
-              onPressed: () {
+              onPressed: () async {
                 final price = double.tryParse(priceController.text);
                 if (price != null && price > 0) {
-                  _controller.updatePrecioGlobalPorKilo(price);
-                  Navigator.pop(context);
-                  setState(() {});
+                  await _controller.updatePrecioGlobalPorKilo(price);
+                  if (mounted) {
+                    Navigator.pop(context);
+                    ErrorHandler.showSuccessSnackBar(
+                      context, 'Precio actualizado correctamente'
+                    );
+                  }
+                } else {
+                  ErrorHandler.showErrorSnackBar(
+                    context, 'Por favor ingrese un precio válido'
+                  );
                 }
               },
               child: const Text('Guardar'),
@@ -204,17 +222,26 @@ class _FatteningScreenState extends State<FatteningScreen> {
               child: const Text('Cancelar'),
             ),
             FilledButton(
-              onPressed: () {
+              onPressed: () async {
                 final baseName = baseNameController.text.trim();
                 final quantity = int.tryParse(quantityController.text);
                 final weight = double.tryParse(weightController.text);
                 if (baseName.isNotEmpty && quantity != null && quantity > 0 && weight != null && weight > 0) {
-                  _controller.importarDesdeCrianza(
+                  await _controller.importarDesdeCrianza(
                     baseName: baseName,
                     cantidad: quantity,
                     pesoPromedio: weight,
                   );
-                  Navigator.pop(context);
+                  if (mounted) {
+                    Navigator.pop(context);
+                    ErrorHandler.showSuccessSnackBar(
+                      context, 'Se han importado $quantity cerditos'
+                    );
+                  }
+                } else {
+                  ErrorHandler.showWarningSnackBar(
+                    context, 'Por favor complete todos los campos correctamente'
+                  );
                 }
               },
               child: const Text('Importar'),
@@ -268,17 +295,18 @@ class _FatteningScreenState extends State<FatteningScreen> {
           // Lista de cerdos de engorda
           Expanded(
             child: ValueListenableBuilder(
-              valueListenable: Hive.box<FatteningPig>('fattening_pigs').listenable(),
+              valueListenable: _controller.getPigListenable(),
               builder: (context, Box<FatteningPig> box, _) {
-                if (box.values.isEmpty) {
+                final pigs = _controller.getAllPigs();
+                if (pigs.isEmpty) {
                   return _buildEmptyState();
                 }
                 
                 return ListView.builder(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: box.values.length,
+                  itemCount: pigs.length,
                   itemBuilder: (context, index) {
-                    final pig = box.getAt(index)!;
+                    final pig = pigs[index];
                     return _buildPigCard(pig);
                   },
                 );
@@ -288,7 +316,7 @@ class _FatteningScreenState extends State<FatteningScreen> {
         ],
       ),
       floatingActionButton: ValueListenableBuilder(
-        valueListenable: Hive.box<FatteningPig>('fattening_pigs').listenable(),
+        valueListenable: _controller.getPigListenable(),
         builder: (context, Box<FatteningPig> box, _) {
           // Solo mostrar el FAB cuando hay cerdos
           if (box.values.isEmpty) {
@@ -457,10 +485,39 @@ class _FatteningScreenState extends State<FatteningScreen> {
               ),
               
               // Botón de acciones
-              IconButton(
-                onPressed: () => context.go('/fattening/${pig.id}'),
-                icon: const Icon(Icons.arrow_forward_ios),
-                color: Theme.of(context).primaryColor,
+              PopupMenuButton<String>(
+                onSelected: (value) {
+                  switch (value) {
+                    case 'details':
+                      context.go('/fattening/${pig.id}');
+                      break;
+                    case 'delete':
+                      _showDeletePigDialog(pig);
+                      break;
+                  }
+                },
+                itemBuilder: (context) => [
+                  const PopupMenuItem(
+                    value: 'details',
+                    child: ListTile(
+                      leading: Icon(Icons.visibility),
+                      title: Text('Ver Detalles'),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'delete',
+                    child: ListTile(
+                      leading: Icon(Icons.delete, color: Colors.red),
+                      title: Text('Eliminar', style: TextStyle(color: Colors.red)),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                ],
+                child: Icon(
+                  Icons.more_vert,
+                  color: Theme.of(context).primaryColor,
+                ),
               ),
             ],
           ),
@@ -548,6 +605,61 @@ class _FatteningScreenState extends State<FatteningScreen> {
           ],
         ),
       ],
+    );
+  }
+
+  void _showDeletePigDialog(FatteningPig pig) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: Row(
+            children: [
+              Icon(Icons.warning, color: Colors.red, size: 28),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'Eliminar Cerdo',
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('¿Estás seguro de que deseas eliminar el cerdo "${pig.name}"?'),
+              const SizedBox(height: 16),
+              const Text(
+                'Esta acción no se puede deshacer.',
+                style: TextStyle(
+                  color: Colors.red,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                await _controller.deletePig(pig.id);
+                if (mounted) {
+                  Navigator.pop(dialogContext);
+                  ErrorHandler.showSuccessSnackBar(
+                    context, 'Cerdo "${pig.name}" eliminado'
+                  );
+                }
+              },
+              style: FilledButton.styleFrom(backgroundColor: Colors.red),
+              child: const Text('Eliminar'),
+            ),
+          ],
+        );
+      },
     );
   }
 }
