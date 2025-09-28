@@ -47,18 +47,18 @@ class FatteningPigListItem extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Peso: ${pig.currentWeight.toStringAsFixed(1)} kg',
+                      'Peso: ${pig.pesoActual.toStringAsFixed(1)} kg',
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
                     const SizedBox(height: 8),
                     Chip(
                       label: Text(
-                        pig.origin == 'manual' ? 'Manual' : 'Importado',
+                        pig.origen == 'manual' ? 'Manual' : 'Importado',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.black87),
                       ),
-                      backgroundColor: pig.origin == 'manual'
-                          ? Colors.amber.shade200
-                          : Colors.blue.shade100,
+                      backgroundColor: pig.origen == 'manual'
+                          ? Colors.amber.withOpacity(0.3)
+                          : Colors.blue.withOpacity(0.2),
                       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
                     ),
                   ],

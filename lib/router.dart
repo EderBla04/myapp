@@ -5,6 +5,8 @@ import 'views/settings_screen.dart';
 import 'views/sow_detail_screen.dart';
 import 'views/fattening_pig_detail_screen.dart';
 
+import 'views/engorda_settings_screen.dart';
+
 final GoRouter router = GoRouter(
   routes: <RouteBase>[
     GoRoute(
@@ -31,6 +33,13 @@ final GoRouter router = GoRouter(
           builder: (BuildContext context, GoRouterState state) {
             final String id = state.pathParameters['id']!;
             return FatteningPigDetailScreen(pigId: id);
+          },
+        ),
+
+        GoRoute(
+          path: 'engorda-settings',  
+          builder: (BuildContext context, GoRouterState state) {
+            return const EngordaSettingsScreen();
           },
         ),
       ],

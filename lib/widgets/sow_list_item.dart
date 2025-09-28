@@ -48,16 +48,18 @@ class SowListItem extends StatelessWidget {
                     const SizedBox(height: 4),
                     Chip(
                       label: Text(
-                        sow.isPregnant ? 'Preñada' : 'En reposo',
+                        sow.estadoVisual == 'prenada' ? 'Preñada' : 
+                        sow.estadoVisual == 'parida' ? 'Parida' : 'En reposo',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.white),
                       ),
-                      backgroundColor: sow.isPregnant ? Colors.pink.shade300 : Colors.grey.shade400,
+                      backgroundColor: sow.estadoVisual == 'prenada' ? Colors.orange : 
+                                     sow.estadoVisual == 'parida' ? Colors.green : Colors.grey,
                       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
                     ),
                     const SizedBox(height: 8),
-                    if (sow.isPregnant)
+                    if (sow.estadoVisual == 'prenada')
                       Text(
-                        'Parto en ${sow.remainingDaysForBirth} días',
+                        'Parto en ${sow.diasRestantes} días',
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
                   ],

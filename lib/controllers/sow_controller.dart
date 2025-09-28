@@ -10,24 +10,18 @@ class SowController {
     final newSow = Sow(
       id: DateTime.now().millisecondsSinceEpoch,
       name: name,
-      isPregnant: false,
     );
     sowBox.add(newSow);
   }
 
   void confirmPregnancy(Sow sow) {
-    final pregnancyDate = DateTime.now();
-    final estimatedBirthDate = pregnancyDate.add(const Duration(days: 114));
-
-    sow.isPregnant = true;
-    sow.estimatedBirthDate = estimatedBirthDate;
+    sow.marcarComoPrenada();
     sow.save();
   }
 
   void registerBirth(Sow sow, int pigletsCount, double initialWeight) {
-    // 1. Reset the sow's state
-    sow.isPregnant = false;
-    sow.estimatedBirthDate = null;
+    // 1. Register birth in sow
+    sow.registrarParto(pigletsCount);
     sow.save();
 
     // 2. Create new fattening pigs
@@ -35,9 +29,9 @@ class SowController {
       final newPig = FatteningPig(
         id: DateTime.now().millisecondsSinceEpoch + i,
         name: 'Lechón de ${sow.name} #${i + 1}',
-        currentWeight: initialWeight,
-        origin: 'Crianza',
-        entryDate: DateTime.now(),
+        pesoActual: initialWeight,
+        origen: 'importado',
+        fechaIngreso: DateTime.now(),
       );
       fatteningPigsBox.add(newPig);
     }

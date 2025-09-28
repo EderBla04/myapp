@@ -14,7 +14,7 @@ class FatteningPigDetailScreen extends StatefulWidget {
 }
 
 class _FatteningPigDetailScreenState extends State<FatteningPigDetailScreen> {
-  final FatteningPigController _controller = FatteningPigController();
+  final EngordaController _controller = EngordaController();
 
   void _showRecordWeightDialog(FatteningPig pig) {
     final weightController = TextEditingController();
@@ -34,7 +34,7 @@ class _FatteningPigDetailScreenState extends State<FatteningPigDetailScreen> {
               onPressed: () {
                 final weight = double.tryParse(weightController.text);
                 if (weight != null) {
-                  _controller.recordWeight(pig, weight);
+                  _controller.updateWeight(pig.id, weight);
                   Navigator.pop(dialogContext);
                 }
               },
@@ -69,9 +69,9 @@ class _FatteningPigDetailScreenState extends State<FatteningPigDetailScreen> {
                       children: [
                         Text('Información General', style: Theme.of(context).textTheme.titleLarge),
                         const SizedBox(height: 8),
-                        Text('Peso actual: ${pig.currentWeight.toStringAsFixed(1)} kg'),
-                        Text('Fecha de entrada: ${pig.entryDate.toLocal().toString().split(' ')[0]}'),
-                        Text('Origen: ${pig.origin}'),
+                        Text('Peso actual: ${pig.pesoActual.toStringAsFixed(1)} kg'),
+                        Text('Fecha de entrada: ${pig.fechaIngreso.toLocal().toString().split(' ')[0]}'),
+                        Text('Origen: ${pig.origen}'),
                       ],
                     ),
                   ),
@@ -90,7 +90,7 @@ class _FatteningPigDetailScreenState extends State<FatteningPigDetailScreen> {
                     ),
                     ElevatedButton.icon(
                       onPressed: () {
-                        _controller.sellPig(pig);
+                        _controller.deletePig(pig.id);
                         context.go('/');
                       },
                       icon: const Icon(Icons.sell_outlined),

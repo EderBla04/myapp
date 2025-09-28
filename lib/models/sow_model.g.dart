@@ -19,26 +19,38 @@ class SowAdapter extends TypeAdapter<Sow> {
     return Sow(
       id: fields[0] as int,
       name: fields[1] as String,
-      isPregnant: fields[2] as bool,
-      estimatedBirthDate: fields[3] as DateTime?,
-      visualState: fields[4] as String,
+      fechaPrenada: fields[2] as DateTime?,
+      fechaPartoEstimado: fields[3] as DateTime?,
+      cerditosNacidos: fields[4] as int,
+      cerditosNoSobrevivieron: fields[5] as int,
+      cerditosImportados: fields[6] as int,
+      estadoVisual: fields[7] as String,
+      hasDado: fields[8] as bool,
     );
   }
 
   @override
   void write(BinaryWriter writer, Sow obj) {
     writer
-      ..writeByte(5)
+      ..writeByte(9)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
       ..write(obj.name)
       ..writeByte(2)
-      ..write(obj.isPregnant)
+      ..write(obj.fechaPrenada)
       ..writeByte(3)
-      ..write(obj.estimatedBirthDate)
+      ..write(obj.fechaPartoEstimado)
       ..writeByte(4)
-      ..write(obj.visualState);
+      ..write(obj.cerditosNacidos)
+      ..writeByte(5)
+      ..write(obj.cerditosNoSobrevivieron)
+      ..writeByte(6)
+      ..write(obj.cerditosImportados)
+      ..writeByte(7)
+      ..write(obj.estadoVisual)
+      ..writeByte(8)
+      ..write(obj.hasDado);
   }
 
   @override

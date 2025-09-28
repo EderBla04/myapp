@@ -19,28 +19,31 @@ class FatteningPigAdapter extends TypeAdapter<FatteningPig> {
     return FatteningPig(
       id: fields[0] as int,
       name: fields[1] as String,
-      currentWeight: fields[2] as double,
-      origin: fields[3] as String,
-      entryDate: fields[4] as DateTime,
-      weightHistory: (fields[5] as HiveList?)?.castHiveList(),
+      pesoActual: fields[2] as double,
+      origen: fields[3] as String,
+      fechaIngreso: fields[4] as DateTime,
+      estadoVisual: fields[5] as String,
+      weightHistory: (fields[6] as HiveList?)?.castHiveList(),
     );
   }
 
   @override
   void write(BinaryWriter writer, FatteningPig obj) {
     writer
-      ..writeByte(6)
+      ..writeByte(7)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
       ..write(obj.name)
       ..writeByte(2)
-      ..write(obj.currentWeight)
+      ..write(obj.pesoActual)
       ..writeByte(3)
-      ..write(obj.origin)
+      ..write(obj.origen)
       ..writeByte(4)
-      ..write(obj.entryDate)
+      ..write(obj.fechaIngreso)
       ..writeByte(5)
+      ..write(obj.estadoVisual)
+      ..writeByte(6)
       ..write(obj.weightHistory);
   }
 
